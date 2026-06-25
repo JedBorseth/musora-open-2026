@@ -2,7 +2,7 @@ import { ConvexError, v } from 'convex/values'
 import { parForHole } from '../src/lib/golf-data'
 import type { Id } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
-import { rosterPlayerIdsForTeamId } from './golfRoster'
+import { defaultTeamSlotName, rosterPlayerIdsForTeamId } from './golfRoster'
 import { upsertTeamHoleScores } from './syncTeamHoleScores'
 import {
   canonicalTeamDisplayNameForTeamId,
@@ -11,6 +11,8 @@ import {
 } from './teamHoleScoreCanon'
 
 export { SETUP_PLACEHOLDER_HOLE } from './teamHoleScoreCanon'
+
+const ROUND_HOLES_REQUIRED = 12
 
 export const teamDisplayNameOnServer = query({
   args: { teamId: v.string() },
@@ -67,6 +69,7 @@ export const leaderboard = query({
   args: {},
   handler: async (ctx) => {
     const rows = await ctx.db.query('teamHoleScores').collect()
+    const assignments = await ctx.db.query('assignedTeamSlots').collect()
     const byTeam = new Map<
       string,
       {
@@ -98,16 +101,30 @@ export const leaderboard = query({
       }
     }
 
-    const entries = [...byTeam.values()].map((stats) => ({
-      teamName: stats.displayName,
-      teamId: stats.teamId ?? null,
-      relativeToPar: stats.vsPar,
-      holesPlayed: stats.holes.size,
-    }))
+    const entries = [...byTeam.values()].map((stats) => {
+      const playerNamesLine =
+        stats.teamId === undefined
+          ? ''
+          : [1, 2, 3, 4]
+              .map((slot) => {
+                const row = assignments.find(
+                  (a) => a.teamId === stats.teamId && a.slot === slot,
+                )
+                return row?.playerName ?? defaultTeamSlotName(slot)
+              })
+              .join(', ')
+      return {
+        teamName: stats.displayName,
+        teamId: stats.teamId ?? null,
+        playerNamesLine,
+        relativeToPar: stats.vsPar,
+        holesPlayed: stats.holes.size,
+      }
+    })
 
     entries.sort((a, b) => {
-      const af = a.holesPlayed >= 18 ? 0 : 1
-      const bf = b.holesPlayed >= 18 ? 0 : 1
+      const af = a.holesPlayed >= ROUND_HOLES_REQUIRED ? 0 : 1
+      const bf = b.holesPlayed >= ROUND_HOLES_REQUIRED ? 0 : 1
       if (af !== bf) return af - bf
       return a.relativeToPar - b.relativeToPar
     })

@@ -39,10 +39,9 @@ import {
 import { loadProfile, saveProfile } from '~/lib/device-profile'
 import {
   COURSE_NAME,
+  defaultTeamPlayers,
   HOLE_META,
   minTeeShotsRequiredPerPlayer,
-  playerNameById,
-  teammatesForPlayer,
 } from '~/lib/golf-data'
 import {
   deltaForHole,
@@ -80,6 +79,8 @@ import { cn } from '~/lib/utils'
 export const Route = createFileRoute('/play/')({
   component: PlayGolfPage,
 })
+
+const ROUND_HOLES_REQUIRED = 12
 
 function teamScoresFromQueryCache(
   queryClient: QueryClient,
@@ -164,7 +165,7 @@ function PlayGolfPage() {
 
     skipNextHolePersist.current = true
     const savedHole = loadLastHoleForTeam(serverCanon)
-    setCurrentHole(savedHole ?? 1)
+    setCurrentHole(savedHole ?? profile.startingHole ?? 1)
 
     void queryClient.invalidateQueries({
       queryKey: convexQuery(api.golf.scoresForTeam, { teamName: prior }).queryKey,
@@ -188,8 +189,8 @@ function PlayGolfPage() {
     if (!hydrated || !teamName) return
     skipNextHolePersist.current = true
     const saved = loadLastHoleForTeam(teamName)
-    setCurrentHole(saved ?? 1)
-  }, [hydrated, teamName])
+    setCurrentHole(saved ?? profile?.startingHole ?? 1)
+  }, [hydrated, teamName, profile?.startingHole])
 
   React.useEffect(() => {
     if (!hydrated || !teamName) return
@@ -203,6 +204,14 @@ function PlayGolfPage() {
   const scoresQuery = useQuery({
     ...convexQuery(api.golf.scoresForTeam, { teamName }),
     enabled: hydrated && !!teamName,
+    gcTime: 1000 * 60 * 60 * 24,
+  })
+
+  const teamRosterQuery = useQuery({
+    ...convexQuery(api.teamAssignments.teamRoster, {
+      teamId: profile?.teamId ?? '__unset__',
+    }),
+    enabled: hydrated && !!profile?.teamId,
     gcTime: 1000 * 60 * 60 * 24,
   })
 
@@ -360,18 +369,28 @@ function PlayGolfPage() {
   }, [hydrated, teamName, pushFullScorecardToConvex])
 
   const teammates = React.useMemo(
-    () => (profile?.playerId ? teammatesForPlayer(profile.playerId) : []),
-    [profile?.playerId],
+    () =>
+      (teamRosterQuery.data ?? defaultTeamPlayers()).map((player) => ({
+        id: player.id,
+        name: player.name,
+      })),
+    [teamRosterQuery.data],
   )
 
   const teeMinimum = minTeeShotsRequiredPerPlayer(teammates.length || 1)
 
-  const myTeeDriveCount = React.useMemo(() => {
-    if (!profile?.playerId) return 0
-    return Object.values(teePlayerIdByHole).filter(
-      (id) => id === profile.playerId,
-    ).length
-  }, [profile?.playerId, teePlayerIdByHole])
+  const teamTeeDriveCount = React.useMemo(() => {
+    const ids = new Set(teammates.map((tm) => tm.id))
+    return Object.values(teePlayerIdByHole).filter((id) => ids.has(id)).length
+  }, [teammates, teePlayerIdByHole])
+
+  const teeMinimumTotal = teeMinimum * teammates.length
+
+  const teamPlayerNameById = React.useCallback(
+    (id: string): string | null =>
+      teammates.find((tm) => tm.id === id)?.name ?? null,
+    [teammates],
+  )
 
   const completeHolesCount = React.useMemo(
     () => holesPayloadFromScorecard(strokes, teePlayerIdByHole).length,
@@ -429,6 +448,13 @@ function PlayGolfPage() {
   }
 
   function openHoleScoreEditor(hole: number, options?: { viaNext?: boolean }) {
+    const isNewScore = scoreForHole(hole) === undefined
+    if (isNewScore && completeHolesCount >= ROUND_HOLES_REQUIRED) {
+      window.alert(
+        'Your team has entered 12 scores. Finish your round before adding another hole.',
+      )
+      return
+    }
     if (!options?.viaNext) {
       setSkipNextScorePromptForHole((s) => (s === hole ? null : s))
     }
@@ -444,6 +470,12 @@ function PlayGolfPage() {
       navigateHole('next')
       return
     }
+    if (completeHolesCount >= ROUND_HOLES_REQUIRED) {
+      window.alert(
+        'Your team has entered 12 scores. Finish your round before adding another hole.',
+      )
+      return
+    }
     if (skipNextScorePromptForHole === h) {
       setSkipNextScorePromptForHole(null)
       navigateHole('next')
@@ -456,6 +488,13 @@ function PlayGolfPage() {
     if (!profile?.teamName || !profile.teamId || scoreTargetHole === null)
       return
     const hole = scoreTargetHole
+    const isNewScore = scoreForHole(hole) === undefined
+    if (isNewScore && completeHolesCount >= ROUND_HOLES_REQUIRED) {
+      window.alert(
+        'Your team has entered 12 scores. Finish your round before adding another hole.',
+      )
+      return
+    }
 
     addPendingHoleSync(profile.teamName, hole)
 
@@ -518,6 +557,11 @@ function PlayGolfPage() {
           teamName: profile.teamName,
         }).queryKey,
       })
+      if (isNewScore && holes.length >= ROUND_HOLES_REQUIRED) {
+        window.alert(
+          'You have 12 scores entered. Finish your round when you are ready.',
+        )
+      }
     } catch (e: unknown) {
       setServerInSync(false)
       if (e instanceof ConvexError && typeof e.data === 'string') {
@@ -555,9 +599,9 @@ function PlayGolfPage() {
       mergedMaps.strokes,
       mergedMaps.teePlayerIdByHole,
     )
-    if (holes.length !== 18) {
+    if (holes.length !== ROUND_HOLES_REQUIRED) {
       window.alert(
-        'Enter a score and tee player for all 18 holes before finishing your round.',
+        'Enter a score and tee player for 12 holes before finishing your round.',
       )
       return
     }
@@ -684,7 +728,7 @@ function PlayGolfPage() {
   const recordedTier =
     recordedDelta !== undefined ? holeScoreTier(recordedDelta) : undefined
   const greetingName =
-    profile.playerName?.split(' ')[0] ?? profile.playerName ?? 'Player'
+    profile.teamName ?? 'Team'
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -707,9 +751,9 @@ function PlayGolfPage() {
             <p className="font-heading text-lg font-semibold leading-none">
               Hi, {greetingName}
             </p>
-            {profile.playerId && teammates.length > 0 && (
+            {teammates.length > 0 && (
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Your tee shots: {myTeeDriveCount} / {teeMinimum}
+                Minimum team tee shots: {teamTeeDriveCount} / {teeMinimumTotal}
               </p>
             )}
             {!serverInSync && scorecardFooter.holesWithScore > 0 && (
@@ -760,7 +804,7 @@ function PlayGolfPage() {
                   {HOLE_META.map((hole) => {
                     const value = scoreForHole(hole.hole)
                     const teeId = teePlayerForHole(hole.hole)
-                    const teeLabel = teeId ? playerNameById(teeId) : null
+                    const teeLabel = teeId ? teamPlayerNameById(teeId) : null
                     const delta =
                       value !== undefined
                         ? deltaForHole(value, hole.par)
@@ -835,7 +879,7 @@ function PlayGolfPage() {
                           </span>
                           <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">
                             ({scorecardFooter.holesWithScore} /{' '}
-                            {HOLE_META.length} holes)
+                            {ROUND_HOLES_REQUIRED} holes)
                           </span>
                         </p>
                       </>
@@ -917,7 +961,16 @@ function PlayGolfPage() {
           <ChevronLeftIcon className="size-5" />
           Back
         </Button>
-        {currentHole < 18 ? (
+        {completeHolesCount >= ROUND_HOLES_REQUIRED ? (
+          <Button
+            className="h-12 flex-1 rounded-xl gap-2"
+            disabled={finishingRound}
+            onClick={() => void handleFinishRound()}
+          >
+            {finishingRound ? 'Submitting…' : 'Finish round'}
+            <ChevronRightIcon className="size-5" />
+          </Button>
+        ) : currentHole < 18 ? (
           <Button
             className="h-12 flex-1 rounded-xl gap-2"
             onClick={handleForward}
@@ -928,14 +981,10 @@ function PlayGolfPage() {
         ) : (
           <Button
             className="h-12 flex-1 rounded-xl gap-2"
-            disabled={completeHolesCount !== 18 || finishingRound}
+            disabled
             onClick={() => void handleFinishRound()}
           >
-            {finishingRound
-              ? 'Submitting…'
-              : completeHolesCount === 18
-                ? 'Finish round'
-                : 'All holes required'}
+            12 holes required
             <ChevronRightIcon className="size-5" />
           </Button>
         )}

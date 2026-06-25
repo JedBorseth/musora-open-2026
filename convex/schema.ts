@@ -5,17 +5,25 @@ export default defineSchema({
   /** One row per team per hole (scramble). */
   teamHoleScores: defineTable({
     teamName: v.string(),
-    /** Stable id (t1–t5) for roster validation and leaderboard extras. */
+    /** Stable id for roster validation and leaderboard extras. */
     teamId: v.optional(v.string()),
     hole: v.number(),
     strokes: v.number(),
-    /** Player id (e.g. p1) whose drive was the team tee ball for this hole. */
+    /** Team slot id (slot1-slot4) whose drive was the team tee ball for this hole. */
     teePlayerId: v.optional(v.string()),
   }).index('by_team_hole', ['teamName', 'hole']),
 
   assignedPlayers: defineTable({
     playerId: v.string(),
   }).index('by_player_id', ['playerId']),
+
+  assignedTeamSlots: defineTable({
+    teamId: v.string(),
+    slot: v.number(),
+    playerName: v.string(),
+  })
+    .index('by_team_id', ['teamId'])
+    .index('by_team_id_and_slot', ['teamId', 'slot']),
 
   /** One global room for competitors on the Play tab (filtered by Convex query bounds). */
   lobbyChatMessages: defineTable({

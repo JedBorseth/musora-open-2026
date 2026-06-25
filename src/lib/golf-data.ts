@@ -4,6 +4,12 @@ export type PlayerRecord = {
   teamId: string
 }
 
+export type TeamPlayer = {
+  id: string
+  name: string
+  slot: number
+}
+
 export const COURSE_NAME = 'Cultus Lake Golf Club'
 
 /** Back of official scorecard (reference). */
@@ -100,30 +106,34 @@ export const TEAM_LABELS: Record<string, string> = {
   t22: 'John McClane',
 }
 
+export const TEAM_SLOT_NUMBERS = [1, 2, 3, 4] as const
+
 export const PLAYERS: Array<PlayerRecord> = [
-  { id: 'p1', name: 'Elton John', teamId: 't1' },
-  { id: 'p2', name: 'John Fogerty', teamId: 't2' },
-  { id: 'p3', name: 'John F. Kennedy', teamId: 't3' },
-  { id: 'p4', name: 'John F. Kennedy Jr.', teamId: 't4' },
-  { id: 'p5', name: 'John Lennon', teamId: 't5' },
-  { id: 'p6', name: 'John Cena', teamId: 't6' },
-  { id: 'p7', name: 'John Mayer', teamId: 't7' },
-  { id: 'p8', name: 'John Daly', teamId: 't8' },
-  { id: 'p9', name: 'John Travolta', teamId: 't9' },
-  { id: 'p10', name: 'John Stamos', teamId: 't10' },
-  { id: 'p11', name: 'John Legend', teamId: 't11' },
-  { id: 'p12', name: 'Papa John', teamId: 't12' },
-  { id: 'p13', name: 'John Krasinski', teamId: 't13' },
-  { id: 'p14', name: 'Johnny Cash', teamId: 't14' },
-  { id: 'p15', name: 'Johnny Depp', teamId: 't15' },
-  { id: 'p16', name: 'Jon Bon Jovi', teamId: 't16' },
-  { id: 'p17', name: 'John Deere', teamId: 't17' },
-  { id: 'p18', name: 'Lil Jon', teamId: 't18' },
-  { id: 'p19', name: 'John McEnroe', teamId: 't19' },
-  { id: 'p20', name: 'Jon Wick', teamId: 't20' },
-  { id: 'p21', name: 'Johnny Knoxville', teamId: 't21' },
-  { id: 'p22', name: 'John McClane', teamId: 't22' },
+  ...Object.keys(TEAM_LABELS).flatMap((teamId) =>
+    TEAM_SLOT_NUMBERS.map((slot) => ({
+      id: teamSlotPlayerId(slot),
+      name: defaultTeamSlotName(slot),
+      teamId,
+    })),
+  ),
 ]
+
+export function teamSlotPlayerId(slot: number): string {
+  return `slot${slot}`
+}
+
+export function defaultTeamSlotName(slot: number): string {
+  if (slot === 1) return 'Team Captain'
+  return `Player ${slot}`
+}
+
+export function defaultTeamPlayers(): Array<TeamPlayer> {
+  return TEAM_SLOT_NUMBERS.map((slot) => ({
+    id: teamSlotPlayerId(slot),
+    name: defaultTeamSlotName(slot),
+    slot,
+  }))
+}
 
 export function teammatesForPlayer(playerId: string): Array<PlayerRecord> {
   const player = PLAYERS.find((p) => p.id === playerId)
@@ -135,7 +145,7 @@ export function teammatesForPlayer(playerId: string): Array<PlayerRecord> {
 
 /** House rule: minimum tee-ball picks per player per round (no enforced maximum). */
 export function minTeeShotsRequiredPerPlayer(_teamSize: number): number {
-  return 3
+  return 2
 }
 
 export function playerNameById(playerId: string): string | undefined {

@@ -7,8 +7,6 @@ import * as React from 'react'
 import { api } from '../../convex/_generated/api'
 import {
   COURSE_NAME,
-  firstNamesLineForTeamId,
-  firstNamesLineForTeamName,
 } from '~/lib/golf-data'
 import { buttonVariants } from '~/components/ui/button'
 import {
@@ -29,6 +27,8 @@ import {
 export const Route = createFileRoute('/leaderboard')({
   component: LeaderboardPage,
 })
+
+const ROUND_HOLES_REQUIRED = 12
 
 function LeaderboardPage() {
   const { data, isPending } = useQuery(convexQuery(api.golf.leaderboard, {}))
@@ -67,7 +67,7 @@ function LeaderboardPage() {
             <CardTitle className="text-lg">Standings</CardTitle>
             <CardDescription>
               One score per team per hole. Totals are strokes vs par on holes
-              played (completed rounds sort ahead of in-progress teams).
+              played (12-hole rounds sort ahead of in-progress teams).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -92,8 +92,7 @@ function LeaderboardPage() {
                     <div>
                       <p className="font-medium leading-none">{row.teamName}</p>
                       <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                        {firstNamesLineForTeamId(row.teamId) ||
-                          firstNamesLineForTeamName(row.teamName)}
+                        {row.playerNamesLine}
                       </p>
                     </div>
                   </div>
@@ -102,9 +101,15 @@ function LeaderboardPage() {
                   <p className="text-lg font-semibold leading-tight tabular-nums text-foreground">
                     {relativeToParShortLabel(row.relativeToPar)}
                   </p>
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {row.holesPlayed}/18 holes
-                  </p>
+                  {row.holesPlayed >= ROUND_HOLES_REQUIRED ? (
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                      F
+                    </p>
+                  ) : (
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {row.holesPlayed}/{ROUND_HOLES_REQUIRED} holes
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

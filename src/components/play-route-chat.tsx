@@ -25,23 +25,22 @@ import {
 } from '~/components/ui/sheet'
 import { loadProfile } from '~/lib/device-profile'
 import { compressLobbyChatImage } from '~/lib/chat-image-compress'
-import { PLAYERS, TEAM_LABELS } from '~/lib/golf-data'
 import { cn } from '~/lib/utils'
 
 function chatEligibleProfile(p: DeviceProfile | null): p is DeviceProfile & {
-  playerId: string
   playerName: string
   teamId: string
   teamName: string
+  teamSlot: number
   role: 'player'
 } {
   return !!(
     p?.onboardingComplete &&
     p.role === 'player' &&
-    p.playerId &&
     p.playerName &&
     p.teamName &&
-    p.teamId
+    p.teamId &&
+    p.teamSlot
   )
 }
 
@@ -52,10 +51,8 @@ function formatChatTime(ms: number) {
   }).format(new Date(ms))
 }
 
-function teamLabelForPlayerId(playerId: string): string {
-  const player = PLAYERS.find((p) => p.id === playerId)
-  if (!player) return ''
-  return TEAM_LABELS[player.teamId] ?? player.teamId
+function chatPlayerId(teamId: string, slot: number): string {
+  return `${teamId}:slot${slot}`
 }
 
 const DEFAULT_DOCK =
@@ -105,7 +102,9 @@ export function PlayRouteChat({ dockClassName }: PlayRouteChatProps = {}) {
   }, [open])
 
   const eligible = chatEligibleProfile(profile)
-  const myChatPlayerId = eligible ? profile.playerId : ''
+  const myChatPlayerId = eligible
+    ? chatPlayerId(profile.teamId, profile.teamSlot)
+    : ''
   const sendChat = useMutation(api.playChat.send)
   const sendChatWithImage = useMutation(api.playChat.sendWithImage)
   const generateUploadUrl = useMutation(
@@ -157,7 +156,8 @@ export function PlayRouteChat({ dockClassName }: PlayRouteChatProps = {}) {
           throw new Error('Upload did not return a file id.')
         }
         await sendChatWithImage({
-          playerId: profile.playerId,
+          teamId: profile.teamId,
+          slot: profile.teamSlot,
           storageId: uploaded.storageId as Id<'_storage'>,
           caption: text || undefined,
         })
@@ -167,7 +167,11 @@ export function PlayRouteChat({ dockClassName }: PlayRouteChatProps = {}) {
         setPendingImage(null)
         setDraft('')
       } else if (text) {
-        await sendChat({ playerId: profile.playerId, body: text })
+        await sendChat({
+          teamId: profile.teamId,
+          slot: profile.teamSlot,
+          body: text,
+        })
         setDraft('')
       }
     } catch (e: unknown) {
@@ -265,7 +269,7 @@ export function PlayRouteChat({ dockClassName }: PlayRouteChatProps = {}) {
                         myChatPlayerId !== '' &&
                         m.playerId === myChatPlayerId
                       const teamLabel =
-                        m.teamDisplayName ?? teamLabelForPlayerId(m.playerId)
+                        m.teamDisplayName ?? ''
                       return (
                         <div
                           key={m.id}
@@ -427,7 +431,7 @@ export function PlayRouteChat({ dockClassName }: PlayRouteChatProps = {}) {
             <div className="pointer-events-auto shrink-0 space-y-3 border-t pt-3 pb-0.5">
               <p className="text-xs leading-snug text-muted-foreground">
                 You can read the chat anytime. To send messages, finish Play
-                setup on this phone (claim your player and register your team).
+                setup on this phone (claim your team spot).
               </p>
               <Link
                 to="/play/setup"

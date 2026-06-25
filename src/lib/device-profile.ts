@@ -3,22 +3,27 @@ const STORAGE_KEY = 'musora-golf-device-profile-v1'
 export type GolfRole = 'player' | 'spectator'
 
 export type DeviceProfile = {
-  version: 1
+  version: 2
   role: GolfRole
+  /** Stable tee-shot id for this device's team slot (slot1-slot4). */
   playerId: string | null
   playerName: string | null
   teamId: string | null
   teamName: string | null
+  teamSlot: number | null
+  startingHole: number | null
   onboardingComplete: boolean
 }
 
 const defaultProfile: DeviceProfile = {
-  version: 1,
+  version: 2,
   role: 'spectator',
   playerId: null,
   playerName: null,
   teamId: null,
   teamName: null,
+  teamSlot: null,
+  startingHole: null,
   onboardingComplete: false,
 }
 
@@ -26,7 +31,7 @@ function isDeviceProfile(value: unknown): value is DeviceProfile {
   if (typeof value !== 'object' || value === null) return false
   const rec = value as Record<string, unknown>
   return (
-    rec.version === 1 &&
+    rec.version === 2 &&
     (rec.role === 'player' || rec.role === 'spectator') &&
     typeof rec.onboardingComplete === 'boolean'
   )

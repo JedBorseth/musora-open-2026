@@ -14,6 +14,7 @@ import type * as golf from "../golf.js";
 import type * as golfRoster from "../golfRoster.js";
 import type * as playChat from "../playChat.js";
 import type * as syncTeamHoleScores from "../syncTeamHoleScores.js";
+import type * as teamAssignments from "../teamAssignments.js";
 import type * as teamHoleScoreCanon from "../teamHoleScoreCanon.js";
 
 import type {
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   golfRoster: typeof golfRoster;
   playChat: typeof playChat;
   syncTeamHoleScores: typeof syncTeamHoleScores;
+  teamAssignments: typeof teamAssignments;
   teamHoleScoreCanon: typeof teamHoleScoreCanon;
 }>;
 

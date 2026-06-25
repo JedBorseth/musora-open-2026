@@ -1,5 +1,4 @@
 import { ConvexError, v } from 'convex/values'
-import { PLAYERS } from '../src/lib/golf-data'
 import { TEAM_LABELS } from './golfRoster'
 import { canonicalTeamDisplayNameForTeamId } from './teamHoleScoreCanon'
 import { mutation, query } from './_generated/server'
@@ -9,6 +8,10 @@ import type { Id } from './_generated/dataModel'
 const GLOBAL_ROOM = 'global' as const
 const MAX_BODY_LEN = 500
 const MAX_LIMIT = 200
+
+function chatPlayerId(teamId: string, slot: number): string {
+  return `${teamId}:slot${slot}`
+}
 
 /** Slightly above the client’s 250KB target so harmless drift isn’t rejected. */
 const MAX_CHAT_IMAGE_BYTES = 278_528
@@ -100,24 +103,25 @@ export const generateChatImageUploadUrl = mutation({
 
 export const send = mutation({
   args: {
-    playerId: v.string(),
+    teamId: v.string(),
+    slot: v.number(),
     body: v.string(),
   },
   handler: async (ctx, args) => {
-    const pid = args.playerId.trim()
-    const player = PLAYERS.find((p) => p.id === pid)
-    if (!player) {
-      throw new ConvexError('Unknown player.')
+    if (!TEAM_LABELS[args.teamId]) {
+      throw new ConvexError('Unknown team.')
     }
 
     const claim = await ctx.db
-      .query('assignedPlayers')
-      .withIndex('by_player_id', (q) => q.eq('playerId', pid))
+      .query('assignedTeamSlots')
+      .withIndex('by_team_id_and_slot', (q) =>
+        q.eq('teamId', args.teamId).eq('slot', args.slot),
+      )
       .unique()
 
     if (claim === null) {
       throw new ConvexError(
-        'Finish setup and claim your player on this phone before chatting.',
+        'Finish setup and claim your team spot on this phone before chatting.',
       )
     }
 
@@ -131,14 +135,14 @@ export const send = mutation({
 
     const scoreRows = await ctx.db.query('teamHoleScores').collect()
     const teamDisplayName =
-      canonicalTeamDisplayNameForTeamId(player.teamId, scoreRows) ||
-      TEAM_LABELS[player.teamId] ||
-      player.teamId
+      canonicalTeamDisplayNameForTeamId(args.teamId, scoreRows) ||
+      TEAM_LABELS[args.teamId] ||
+      args.teamId
 
     await ctx.db.insert('lobbyChatMessages', {
       room: GLOBAL_ROOM,
-      playerId: player.id,
-      playerName: player.name,
+      playerId: chatPlayerId(args.teamId, args.slot),
+      playerName: claim.playerName,
       teamDisplayName,
       body,
       sentAt: Date.now(),
@@ -149,25 +153,26 @@ export const send = mutation({
 
 export const sendWithImage = mutation({
   args: {
-    playerId: v.string(),
+    teamId: v.string(),
+    slot: v.number(),
     storageId: v.id('_storage'),
     caption: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const pid = args.playerId.trim()
-    const player = PLAYERS.find((p) => p.id === pid)
-    if (!player) {
-      throw new ConvexError('Unknown player.')
+    if (!TEAM_LABELS[args.teamId]) {
+      throw new ConvexError('Unknown team.')
     }
 
     const claim = await ctx.db
-      .query('assignedPlayers')
-      .withIndex('by_player_id', (q) => q.eq('playerId', pid))
+      .query('assignedTeamSlots')
+      .withIndex('by_team_id_and_slot', (q) =>
+        q.eq('teamId', args.teamId).eq('slot', args.slot),
+      )
       .unique()
 
     if (claim === null) {
       throw new ConvexError(
-        'Finish setup and claim your player on this phone before chatting.',
+        'Finish setup and claim your team spot on this phone before chatting.',
       )
     }
 
@@ -180,14 +185,14 @@ export const sendWithImage = mutation({
 
     const scoreRows = await ctx.db.query('teamHoleScores').collect()
     const teamDisplayName =
-      canonicalTeamDisplayNameForTeamId(player.teamId, scoreRows) ||
-      TEAM_LABELS[player.teamId] ||
-      player.teamId
+      canonicalTeamDisplayNameForTeamId(args.teamId, scoreRows) ||
+      TEAM_LABELS[args.teamId] ||
+      args.teamId
 
     await ctx.db.insert('lobbyChatMessages', {
       room: GLOBAL_ROOM,
-      playerId: player.id,
-      playerName: player.name,
+      playerId: chatPlayerId(args.teamId, args.slot),
+      playerName: claim.playerName,
       teamDisplayName,
       body: caption,
       imageStorageId: args.storageId,

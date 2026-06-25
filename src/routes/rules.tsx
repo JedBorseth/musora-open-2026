@@ -53,9 +53,9 @@ function RulesPage() {
         <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
           <RuleSection title="Format">
             <ul className="list-disc space-y-1 pl-5">
-              <li>18-hole stroke play scramble match.</li>
+              <li>9 or 12 hole stroke play scramble match.</li>
               <li>
-                You must use 3 tee shots from each team member during the round.
+                You must use 2 tee shots from each team member during the round.
               </li>
             </ul>
           </RuleSection>
@@ -68,12 +68,13 @@ function RulesPage() {
           <RuleSection title="Etiquette">
             <ul className="list-disc space-y-1 pl-5">
               <li>Repair ball marks and rake bunkers.</li>
-              <li>Cart-path-only when posted.</li>
+              <li>Keep carts off the green and tee boxes.</li>
             </ul>
           </RuleSection>
           <RuleSection title="Questions?">
             <p>
-              Ask <strong>Mary-Liz</strong> before teeing off.
+              Ask <strong>Dylan W</strong> or <strong>Mary-Liz</strong> before
+              teeing off.
             </p>
           </RuleSection>
         </CardContent>

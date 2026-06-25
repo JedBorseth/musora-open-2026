@@ -20,49 +20,69 @@ import {
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { emptyProfile, loadProfile, saveProfile } from '~/lib/device-profile'
-import {
-  PLAYERS,
-  TEAM_LABELS,
-  teammatesForPlayer,
-} from '~/lib/golf-data'
+import { TEAM_LABELS, defaultTeamSlotName } from '~/lib/golf-data'
 import { cn } from '~/lib/utils'
 
 export const Route = createFileRoute('/play/setup')({
   component: PlaySetupPage,
 })
 
-type Step = 'role' | 'name' | 'team'
+type Step = 'role' | 'team' | 'player'
 
 function PlaySetupPage() {
   const navigate = useNavigate()
   const [ready, setReady] = React.useState(false)
   const [step, setStep] = React.useState<Step>('role')
-  const [playerId, setPlayerId] = React.useState<string | null>(null)
+  const [teamId, setTeamId] = React.useState<string | null>(null)
+  const [playerName, setPlayerName] = React.useState('')
+  const [startingHoleInput, setStartingHoleInput] = React.useState('1')
 
-  const takenOpts = convexQuery(api.assignedPlayers.listTakenPlayerIds, {})
-  const { data: takenPlayerIds, isPending: takenPending } = useQuery(takenOpts)
-  const claimPlayer = useMutation(api.assignedPlayers.claimPlayer)
-  const ensureTeamPlaceholder = useMutation(api.golf.ensureTeamPlaceholderScorecard)
+  const availabilityOpts = convexQuery(
+    api.teamAssignments.listTeamAvailability,
+    {},
+  )
+  const { data: teamAvailability, isPending: availabilityPending } =
+    useQuery(availabilityOpts)
+  const claimTeamSlot = useMutation(api.teamAssignments.claimTeamSlot)
+  const ensureTeamPlaceholder = useMutation(
+    api.golf.ensureTeamPlaceholderScorecard,
+  )
 
-  const takenSet = React.useMemo(
-    () => new Set(takenPlayerIds ?? []),
-    [takenPlayerIds],
+  const availableTeams = React.useMemo(
+    () =>
+      (teamAvailability ?? []).filter(
+        (team) => team.claimedCount < team.maxCount,
+      ),
+    [teamAvailability],
   )
-  const availablePlayers = React.useMemo(
-    () => PLAYERS.filter((p) => !takenSet.has(p.id)),
-    [takenSet],
+
+  const teamOptions = React.useMemo(
+    () =>
+      availableTeams.map((team) => ({
+        id: team.teamId,
+        name: `${team.teamName} (${team.claimedCount}/${team.maxCount})`,
+      })),
+    [availableTeams],
   )
-  const comboboxPlayers = React.useMemo(
-    () => availablePlayers.map((p) => ({ id: p.id, name: p.name })),
-    [availablePlayers],
+
+  const selectedTeam = React.useMemo(
+    () => teamAvailability?.find((team) => team.teamId === teamId) ?? null,
+    [teamAvailability, teamId],
   )
+
+  const nextSlot = Math.min((selectedTeam?.claimedCount ?? 0) + 1, 4)
 
   React.useEffect(() => {
-    if (step !== 'name') return
-    if (playerId === null) return
-    if (!takenSet.has(playerId)) return
-    setPlayerId(null)
-  }, [step, playerId, takenSet])
+    if (step !== 'team') return
+    if (teamId === null) return
+    const stillAvailable = availableTeams.some((team) => team.teamId === teamId)
+    if (!stillAvailable) setTeamId(null)
+  }, [step, teamId, availableTeams])
+
+  React.useEffect(() => {
+    if (!selectedTeam) return
+    setPlayerName(defaultTeamSlotName(nextSlot))
+  }, [selectedTeam, nextSlot])
 
   React.useEffect(() => {
     const existing = loadProfile()
@@ -86,31 +106,38 @@ function PlaySetupPage() {
     void navigate({ to: '/leaderboard' })
   }
 
-  async function finishPlayer(
-    selectedId: string,
-    teamDisplayName: string,
-  ): Promise<void> {
-    const player = PLAYERS.find((p) => p.id === selectedId)
-    if (!player) return
+  async function finishPlayerSetup(): Promise<void> {
+    if (!selectedTeam) return
+
+    const startingHole = Number.parseInt(startingHoleInput, 10)
+    const normalizedHole =
+      Number.isInteger(startingHole) && startingHole >= 1 && startingHole <= 18
+        ? startingHole
+        : 1
+
+    let claim: Awaited<ReturnType<typeof claimTeamSlot>>
     try {
-      await claimPlayer({ playerId: selectedId })
+      claim = await claimTeamSlot({
+        teamId: selectedTeam.teamId,
+        playerName,
+      })
     } catch (e: unknown) {
       if (e instanceof ConvexError && typeof e.data === 'string') {
         window.alert(e.data)
         return
       }
       window.alert(
-        e instanceof Error ? e.message : 'Could not save your player pick.',
+        e instanceof Error ? e.message : 'Could not save your team spot.',
       )
       return
     }
-    const fallback = TEAM_LABELS[player.teamId] ?? 'Team'
-    const name = teamDisplayName.trim() || fallback
+
+    const fallback = TEAM_LABELS[claim.teamId] ?? selectedTeam.teamName
     let serverTeamDisplayName: string
     try {
       const ensured = await ensureTeamPlaceholder({
-        teamId: player.teamId,
-        teamName: name,
+        teamId: claim.teamId,
+        teamName: fallback,
       })
       serverTeamDisplayName = ensured.teamDisplayName
     } catch (e: unknown) {
@@ -125,13 +152,16 @@ function PlaySetupPage() {
       )
       return
     }
+
     saveProfile({
-      version: 1,
+      version: 2,
       role: 'player',
-      playerId: player.id,
-      playerName: player.name,
-      teamId: player.teamId,
+      playerId: claim.playerId,
+      playerName: claim.playerName,
+      teamId: claim.teamId,
       teamName: serverTeamDisplayName,
+      teamSlot: claim.slot,
+      startingHole: normalizedHole,
       onboardingComplete: true,
     })
     void navigate({ to: '/play' })
@@ -180,7 +210,7 @@ function PlaySetupPage() {
             <Button
               size="lg"
               className="h-12 rounded-xl text-base"
-              onClick={() => setStep('name')}
+              onClick={() => setStep('team')}
             >
               I&apos;m playing
             </Button>
@@ -196,29 +226,30 @@ function PlaySetupPage() {
         </Card>
       )}
 
-      {step === 'name' && (
+      {step === 'team' && (
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Who are you?</CardTitle>
+            <CardTitle className="text-lg">Pick your team</CardTitle>
             <CardDescription>
-              Search the roster — names already picked on another phone are
-              hidden.
+              Each team can be joined by four phones. Full teams disappear from
+              this list. If your team is full, ask an admin to clear a team
+              slot. You can also spectate as a guest.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {takenPending ? (
-              <p className="text-sm text-muted-foreground">Loading roster…</p>
-            ) : comboboxPlayers.length === 0 ? (
+            {availabilityPending ? (
+              <p className="text-sm text-muted-foreground">Loading teams…</p>
+            ) : teamOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Everyone on the roster is already assigned on another device.
-                Ask a teammate to clear their device from Admin if this is a
-                mistake.
+                Every team already has four players assigned. Ask an admin to
+                clear a team slot if this is a mistake.
               </p>
             ) : (
               <PlayerCombobox
-                players={comboboxPlayers}
-                valueId={playerId}
-                onSelect={setPlayerId}
+                players={teamOptions}
+                valueId={teamId}
+                onSelect={setTeamId}
+                placeholder="Search teams…"
               />
             )}
           </CardContent>
@@ -233,9 +264,9 @@ function PlaySetupPage() {
             <Button
               className="flex-1 rounded-xl"
               disabled={
-                !playerId || takenPending || comboboxPlayers.length === 0
+                !teamId || availabilityPending || teamOptions.length === 0
               }
-              onClick={() => setStep('team')}
+              onClick={() => setStep('player')}
             >
               Continue
             </Button>
@@ -243,119 +274,64 @@ function PlaySetupPage() {
         </Card>
       )}
 
-      {step === 'team' && playerId && (
-        <TeamConfirmCard
-          playerId={playerId}
-          onBack={() => setStep('name')}
-          onConfirm={(teamDisplayName) => finishPlayer(playerId, teamDisplayName)}
-        />
+      {step === 'player' && selectedTeam && (
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Your player info</CardTitle>
+            <CardDescription>
+              You are joining {selectedTeam.teamName} as player {nextSlot} of 4.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="player-name">Your name</Label>
+              <Input
+                id="player-name"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder={defaultTeamSlotName(nextSlot)}
+                className="rounded-xl"
+                autoComplete="name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="starting-hole">Starting hole</Label>
+              <Input
+                id="starting-hole"
+                value={startingHoleInput}
+                onChange={(e) =>
+                  setStartingHoleInput(
+                    e.target.value.replace(/\D/g, '').slice(0, 2),
+                  )
+                }
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="1"
+                className="rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground">
+                Choose a hole from 1 to 18. You can still move around once play
+                starts.
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="ghost"
+              className="flex-1 rounded-xl"
+              onClick={() => setStep('team')}
+            >
+              Back
+            </Button>
+            <Button
+              className="flex-1 rounded-xl"
+              onClick={() => void finishPlayerSetup()}
+            >
+              Start on hole {startingHoleInput || '1'}
+            </Button>
+          </CardFooter>
+        </Card>
       )}
     </div>
-  )
-}
-
-function TeamConfirmCard({
-  playerId,
-  onBack,
-  onConfirm,
-}: {
-  playerId: string
-  onBack: () => void
-  onConfirm: (teamDisplayName: string) => Promise<void>
-}) {
-  const teammates = teammatesForPlayer(playerId)
-  const player = PLAYERS.find((p) => p.id === playerId)
-  const teamIdForQuery = player?.teamId ?? ''
-  const label = player ? TEAM_LABELS[player.teamId] ?? 'Team' : 'Team'
-
-  const serverTeamNameOpts = convexQuery(api.golf.teamDisplayNameOnServer, {
-    teamId: teamIdForQuery || '__unset__',
-  })
-  const { data: serverTeamNameRaw, isFetched: serverNameFetched } = useQuery({
-    ...serverTeamNameOpts,
-    enabled: teamIdForQuery.length > 0,
-  })
-
-  const serverSuggestedName =
-    serverNameFetched &&
-    typeof serverTeamNameRaw === 'string' &&
-    serverTeamNameRaw.length > 0
-      ? serverTeamNameRaw
-      : undefined
-
-  const defaultTeamName = serverSuggestedName ?? label
-  const [teamNameInput, setTeamNameInput] = React.useState(defaultTeamName)
-  const [confirming, setConfirming] = React.useState(false)
-
-  React.useEffect(() => {
-    setTeamNameInput(defaultTeamName)
-  }, [playerId, defaultTeamName])
-
-  const hintBaseline = serverSuggestedName ?? label
-
-  return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Your teammates</CardTitle>
-        <CardDescription>
-          Confirm this is the squad you are walking with today.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-2">
-          <Label htmlFor="team-display-name">Team name</Label>
-          <Input
-            id="team-display-name"
-            value={teamNameInput}
-            onChange={(e) => setTeamNameInput(e.target.value)}
-            placeholder={label}
-            className="rounded-xl"
-            autoComplete="off"
-          />
-          <p className="text-xs text-muted-foreground">
-            Defaults to {hintBaseline}. Change it if your group uses another name
-            on the leaderboard.
-          </p>
-        </div>
-        <ul className="space-y-2 rounded-xl border bg-card px-3 py-3 text-sm">
-          {teammates.map((t) => (
-            <li key={t.id} className="flex items-center justify-between">
-              <span>{t.name}</span>
-              {t.id === playerId && (
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                  You
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-      <CardFooter className="flex flex-col gap-2 sm:flex-row">
-        <Button
-          variant="ghost"
-          className="flex-1 rounded-xl"
-          onClick={onBack}
-          disabled={confirming}
-        >
-          No, pick another name
-        </Button>
-        <Button
-          className="flex-1 rounded-xl"
-          disabled={confirming}
-          onClick={() => {
-            setConfirming(true)
-            void (async () => {
-              try {
-                await onConfirm(teamNameInput)
-              } finally {
-                setConfirming(false)
-              }
-            })()
-          }}
-        >
-          {confirming ? 'Saving…' : "Yes, that's my team"}
-        </Button>
-      </CardFooter>
-    </Card>
   )
 }

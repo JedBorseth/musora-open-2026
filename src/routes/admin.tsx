@@ -10,7 +10,7 @@ import { api } from '../../convex/_generated/api'
 import { ADMIN_OTP_CODE } from '~/lib/admin-otp'
 import { loadProfile } from '~/lib/device-profile'
 import { clearAllAppLocalStorage } from '~/lib/device-storage-clear'
-import { PLAYERS, TEAM_LABELS, playerNameById } from '~/lib/golf-data'
+import { TEAM_LABELS } from '~/lib/golf-data'
 import { relativeToParShortLabel } from '~/lib/hole-score-indicator'
 import { cn } from '~/lib/utils'
 
@@ -69,19 +69,15 @@ const TEAM_IDS = [
 
 type TeamId = (typeof TEAM_IDS)[number]
 
-const PLAYER_ORDER = new Map(PLAYERS.map((p, i) => [p.id, i]))
-
-function sortAssignedPlayerIds(ids: Array<string>): Array<string> {
-  return [...ids].sort((a, b) => {
-    const ai = PLAYER_ORDER.get(a) ?? 999
-    const bi = PLAYER_ORDER.get(b) ?? 999
-    if (ai !== bi) return ai - bi
-    return a.localeCompare(b)
-  })
+function slotKey(teamId: string, slot: number): string {
+  return `${teamId}:${slot}`
 }
 
-function labelForAssignedPlayerId(playerId: string): string {
-  return playerNameById(playerId) ?? playerId
+function parseSlotKey(key: string): { teamId: string; slot: number } | null {
+  const [teamId, slotRaw] = key.split(':')
+  const slot = Number.parseInt(slotRaw ?? '', 10)
+  if (!teamId || !Number.isInteger(slot)) return null
+  return { teamId, slot }
 }
 
 function convexErrMessage(e: unknown): string {
@@ -114,19 +110,22 @@ function AdminPage() {
     enabled: !locked,
   })
 
-  const takenOpts = convexQuery(api.assignedPlayers.listTakenPlayerIds, {})
-  const { data: takenPlayerIdsRaw } = useQuery({
-    ...takenOpts,
+  const assignedSlotsOpts = convexQuery(
+    api.teamAssignments.listAssignedTeamSlots,
+    {},
+  )
+  const { data: assignedSlotsRaw } = useQuery({
+    ...assignedSlotsOpts,
     enabled: !locked,
   })
 
   const adminResetAll = useMutation(api.admin.adminResetAllHoleScores)
   const adminResetTeam = useMutation(api.admin.adminResetTeamHoleScores)
-  const adminReleaseAssignedPlayer = useMutation(
-    api.admin.adminReleaseAssignedPlayer,
+  const adminReleaseAssignedTeamSlot = useMutation(
+    api.admin.adminReleaseAssignedTeamSlot,
   )
   const adminClearLobbyChat = useMutation(api.admin.adminClearLobbyChat)
-  const releasePlayer = useMutation(api.assignedPlayers.releasePlayer)
+  const releaseTeamSlot = useMutation(api.teamAssignments.releaseTeamSlot)
 
   const [inlineError, setInlineError] = React.useState<string | null>(null)
   const [pendingAction, setPendingAction] = React.useState<
@@ -135,9 +134,8 @@ function AdminPage() {
   const [pendingTeamId, setPendingTeamId] = React.useState<TeamId | null>(null)
   const [teamConfirmId, setTeamConfirmId] = React.useState<TeamId | null>(null)
   const [showDangerDialog, setShowDangerDialog] = React.useState(false)
-  const [releaseAssignPlayerId, setReleaseAssignPlayerId] =
-    React.useState<string>('')
-  const [pendingReleaseAssignId, setPendingReleaseAssignId] = React.useState<
+  const [releaseAssignKey, setReleaseAssignKey] = React.useState<string>('')
+  const [pendingReleaseAssignKey, setPendingReleaseAssignKey] = React.useState<
     string | null
   >(null)
   const [showReleaseAssignDialog, setShowReleaseAssignDialog] =
@@ -145,26 +143,29 @@ function AdminPage() {
   const [showClearChatDialog, setShowClearChatDialog] = React.useState(false)
   const [pendingClearChat, setPendingClearChat] = React.useState(false)
 
-  const takenPlayerIds = React.useMemo(
-    () => sortAssignedPlayerIds(takenPlayerIdsRaw ?? []),
-    [takenPlayerIdsRaw],
-  )
+  const assignedSlots = assignedSlotsRaw ?? []
 
   React.useEffect(() => {
-    if (takenPlayerIds.length === 0) {
-      setReleaseAssignPlayerId('')
+    if (assignedSlots.length === 0) {
+      setReleaseAssignKey('')
       return
     }
-    setReleaseAssignPlayerId((prev) =>
-      prev && takenPlayerIds.includes(prev) ? prev : takenPlayerIds[0],
+    setReleaseAssignKey((prev) =>
+      prev && assignedSlots.some((slot) => slotKey(slot.teamId, slot.slot) === prev)
+        ? prev
+        : slotKey(assignedSlots[0].teamId, assignedSlots[0].slot),
     )
-  }, [takenPlayerIds])
+  }, [assignedSlots])
 
   const anyBusy =
     pendingAction !== null ||
     pendingTeamId !== null ||
-    pendingReleaseAssignId !== null ||
+    pendingReleaseAssignKey !== null ||
     pendingClearChat
+
+  const selectedAssignedSlot = assignedSlots.find(
+    (slot) => slotKey(slot.teamId, slot.slot) === releaseAssignKey,
+  )
 
   async function wipeAllServer() {
     const pinVal = adminPin
@@ -196,18 +197,23 @@ function AdminPage() {
     }
   }
 
-  async function confirmReleaseServerAssignment(playerId: string) {
+  async function confirmReleaseServerAssignment(key: string) {
     const pinVal = adminPin
-    if (!pinVal || !playerId) return
+    const parsed = parseSlotKey(key)
+    if (!pinVal || !parsed) return
     setInlineError(null)
-    setPendingReleaseAssignId(playerId)
+    setPendingReleaseAssignKey(key)
     try {
-      await adminReleaseAssignedPlayer({ pin: pinVal, playerId })
+      await adminReleaseAssignedTeamSlot({
+        pin: pinVal,
+        teamId: parsed.teamId,
+        slot: parsed.slot,
+      })
       setShowReleaseAssignDialog(false)
     } catch (e: unknown) {
       setInlineError(convexErrMessage(e))
     } finally {
-      setPendingReleaseAssignId(null)
+      setPendingReleaseAssignKey(null)
     }
   }
 
@@ -216,8 +222,8 @@ function AdminPage() {
     setPendingAction('device')
     try {
       const p = loadProfile()
-      if (p?.playerId) {
-        await releasePlayer({ playerId: p.playerId })
+      if (p?.teamId && p.teamSlot) {
+        await releaseTeamSlot({ teamId: p.teamId, slot: p.teamSlot })
       }
       clearAllAppLocalStorage()
       void navigate({ to: '/' })
@@ -393,13 +399,12 @@ function AdminPage() {
               <span className="block">
                 This clears only the server lock for{' '}
                 <span className="font-medium text-foreground">
-                  {releaseAssignPlayerId
-                    ? labelForAssignedPlayerId(releaseAssignPlayerId)
-                    : 'this player'}
+                  {selectedAssignedSlot
+                    ? `${selectedAssignedSlot.playerName} (${selectedAssignedSlot.teamName}, player ${selectedAssignedSlot.slot})`
+                    : 'this team slot'}
                 </span>
-                . Their phone stays signed in as that player, but the name is
-                available again on the setup screen—another device can pick it,
-                or they can reclaim it.
+                . Their phone stays signed in, but that team slot is available
+                again on the setup screen.
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -411,16 +416,14 @@ function AdminPage() {
               type="button"
               variant="destructive"
               disabled={
-                !releaseAssignPlayerId ||
-                pendingReleaseAssignId !== null ||
-                takenPlayerIds.length === 0
+                !releaseAssignKey ||
+                pendingReleaseAssignKey !== null ||
+                assignedSlots.length === 0
               }
               className="w-full rounded-xl sm:w-auto"
-              onClick={() =>
-                void confirmReleaseServerAssignment(releaseAssignPlayerId)
-              }
+              onClick={() => void confirmReleaseServerAssignment(releaseAssignKey)}
             >
-              {pendingReleaseAssignId === releaseAssignPlayerId
+              {pendingReleaseAssignKey === releaseAssignKey
                 ? 'Removing…'
                 : 'Remove assignment'}
             </Button>
@@ -467,28 +470,27 @@ function AdminPage() {
 
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg">Player assignments (server)</CardTitle>
+          <CardTitle className="text-lg">Team assignments (server)</CardTitle>
           <CardDescription>
-            Names already claimed on a phone are hidden from setup for everyone
-            else. Clear a server assignment if someone needs to switch devices
-            or you need to free the name—phones stay logged in until they clear
-            the device or redo setup.
+            Team slots already claimed on a phone count toward that team&apos;s
+            four-player limit. Clear a slot if someone needs to switch devices
+            or free a spot.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {takenPlayerIdsRaw === undefined ? (
+          {assignedSlotsRaw === undefined ? (
             <p className="text-sm text-muted-foreground">
               Loading assignments…
             </p>
-          ) : takenPlayerIds.length === 0 ? (
+          ) : assignedSlots.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No server assignments right now. Everyone on the roster is free on
-              the setup screen.
+              No server assignments right now. Every team slot is free on the
+              setup screen.
             </p>
           ) : (
             <>
               <div className="space-y-2">
-                <Label htmlFor="admin-release-assign">Assigned player</Label>
+                <Label htmlFor="admin-release-assign">Assigned team slot</Label>
                 <select
                   id="admin-release-assign"
                   className={cn(
@@ -496,13 +498,16 @@ function AdminPage() {
                     'ring-offset-background focus-visible:outline-none focus-visible:ring-2',
                     'focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                   )}
-                  value={releaseAssignPlayerId}
+                  value={releaseAssignKey}
                   disabled={anyBusy}
-                  onChange={(e) => setReleaseAssignPlayerId(e.target.value)}
+                  onChange={(e) => setReleaseAssignKey(e.target.value)}
                 >
-                  {takenPlayerIds.map((id) => (
-                    <option key={id} value={id}>
-                      {labelForAssignedPlayerId(id)}
+                  {assignedSlots.map((slot) => (
+                    <option
+                      key={slotKey(slot.teamId, slot.slot)}
+                      value={slotKey(slot.teamId, slot.slot)}
+                    >
+                      {slot.playerName} — {slot.teamName} player {slot.slot}
                     </option>
                   ))}
                 </select>
@@ -513,8 +518,8 @@ function AdminPage() {
                 className="w-full rounded-xl"
                 disabled={
                   anyBusy ||
-                  takenPlayerIds.length === 0 ||
-                  !releaseAssignPlayerId
+                  assignedSlots.length === 0 ||
+                  !releaseAssignKey
                 }
                 onClick={() => setShowReleaseAssignDialog(true)}
               >
@@ -559,7 +564,7 @@ function AdminPage() {
                     </span>
                     <span className="text-muted-foreground"> vs par · </span>
                     <span className="tabular-nums">{row.holesPlayed}</span>
-                    <span className="text-muted-foreground">/18 holes</span>
+                    <span className="text-muted-foreground">/12 holes</span>
                   </>
                 )
               } else {

@@ -78,6 +78,22 @@ export const adminReleaseAssignedPlayer = mutation({
   },
 })
 
+export const adminReleaseAssignedTeamSlot = mutation({
+  args: { pin: v.string(), teamId: v.string(), slot: v.number() },
+  handler: async (ctx, args) => {
+    assertAdminPin(args.pin)
+    const rows = await ctx.db
+      .query('assignedTeamSlots')
+      .withIndex('by_team_id_and_slot', (q) =>
+        q.eq('teamId', args.teamId).eq('slot', args.slot),
+      )
+      .collect()
+    for (const row of rows) {
+      await ctx.db.delete('assignedTeamSlots', row._id)
+    }
+  },
+})
+
 export const adminResetTeamHoleScores = mutation({
   args: {
     pin: v.string(),
