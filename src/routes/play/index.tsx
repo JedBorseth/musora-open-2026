@@ -380,9 +380,15 @@ function PlayGolfPage() {
   const teeMinimum = minTeeShotsRequiredPerPlayer(teammates.length || 1)
 
   const teamTeeDriveCount = React.useMemo(() => {
-    const ids = new Set(teammates.map((tm) => tm.id))
-    return Object.values(teePlayerIdByHole).filter((id) => ids.has(id)).length
-  }, [teammates, teePlayerIdByHole])
+    const counts = new Map<string, number>()
+    for (const id of Object.values(teePlayerIdByHole)) {
+      counts.set(id, (counts.get(id) ?? 0) + 1)
+    }
+    return teammates.reduce(
+      (sum, tm) => sum + Math.min(counts.get(tm.id) ?? 0, teeMinimum),
+      0,
+    )
+  }, [teammates, teeMinimum, teePlayerIdByHole])
 
   const teeMinimumTotal = teeMinimum * teammates.length
 
