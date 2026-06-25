@@ -1,84 +1,108 @@
-Musora Open 2026
+# Musora Open 2026
 
 A web application built for the Musora Open 2026 golf tournament.
 
 This project is built with:
 
-* TanStack Start
-* Convex
-* React
-* TypeScript
-* shadcn/ui
+- TanStack Start
+- Convex
+- React
+- TypeScript
+- shadcn/ui
 
-The project was originally forked from a family golf game project and adapted for the Musora Open tournament.
+The project was originally forked from my Family Golf Game project and adapted for the Musora Open tournament.
 
-Features
+## Features
 
-* Real-time data powered by Convex
-* Modern React application architecture using TanStack Start
-* Type-safe backend and frontend development
-* Responsive UI built with shadcn/ui
-* Fast deployment and development workflow
+- Real-time data powered by Convex
+- Modern React application architecture using TanStack Start
+- Type-safe backend and frontend development
+- Responsive UI built with shadcn/ui
+- Fast deployment and development workflow
 
-Getting Started
+## Getting Started
 
-Prerequisites
+### Prerequisites
 
-* Node.js 20+
-* npm, pnpm, or bun
-* A Convex account and deployment
+- Node.js 20+
+- npm, pnpm, or bun
+- A Convex account and deployment
 
-Installation
+### Installation
 
 Clone the repository:
 
+```bash
 git clone https://github.com/JedBorseth/musora-open-2026.git
 cd musora-open-2026
+```
 
 Install dependencies:
 
+```bash
 npm install
+```
 
-Environment Variables
+### Environment Variables
 
-Create a .env.local file in the project root:
+Create a `.env.local` file in the project root:
 
+```env
 CONVEX_DEPLOYMENT=
+
 VITE_CONVEX_URL=
+
 VITE_CONVEX_SITE_URL=
+```
 
-Variable	Description
-CONVEX_DEPLOYMENT	Your Convex deployment identifier
-VITE_CONVEX_URL	Convex deployment URL used by the frontend
-VITE_CONVEX_SITE_URL	Public site URL for the application
+| Variable | Description |
+|-----------|-------------|
+| `CONVEX_DEPLOYMENT` | Your Convex deployment identifier |
+| `VITE_CONVEX_URL` | Convex deployment URL used by the frontend |
+| `VITE_CONVEX_SITE_URL` | Public site URL for the application |
 
-Running Locally
+### Running Locally
 
 Start the Convex development environment:
 
+```bash
 npx convex dev
+```
 
 In another terminal, start the application:
 
+```bash
 npm run dev
+```
 
 The application will be available at:
 
+```text
 http://localhost:3000
+```
 
-Tech Stack
+## Tech Stack
 
-* Frontend: TanStack Start, React, TypeScript
-* Backend: Convex
-* UI Components: shadcn/ui
-* Styling: Tailwind CSS
+- **Frontend:** TanStack Start, React, TypeScript
+- **Backend:** Convex
+- **Database:** Convex
+- **UI Components:** shadcn/ui
+- **Styling:** Tailwind CSS
 
-Deployment
+## Deployment
 
-Deploy the frontend using your preferred hosting provider and deploy the Convex backend using the Convex CLI.
+Deploy the Convex backend:
 
+```bash
 npx convex deploy
+```
 
-License
+Then deploy the frontend using your preferred hosting provider.
 
-This project is licensed under the MIT License.
+## Acknowledgements
+
+This project was originally forked from the Family Golf Game project and modified for use at the Musora Open 2026.
+
+## License
+
+MIT
