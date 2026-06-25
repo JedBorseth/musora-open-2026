@@ -7,10 +7,10 @@ export type LocalScorecard = {
   teePlayerIdByHole: Record<string, string>
 }
 
-const STORAGE_KEY = 'borseth-cup-local-rounds-v2'
+const STORAGE_KEY = 'musora-open-local-rounds-v2'
 
 /** Hole numbers awaiting server echo — keep local edits from being stomped during merge/sync. */
-const PENDING_SYNC_KEY = 'borseth-cup-pending-hole-sync-v1'
+const PENDING_SYNC_KEY = 'musora-open-pending-hole-sync-v1'
 
 type PendingHoleMapJson = Record<string, Array<number>>
 

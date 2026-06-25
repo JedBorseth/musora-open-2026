@@ -1,6 +1,6 @@
 /** Last viewed hole per team (Play route). */
 
-const STORAGE_KEY = 'borseth-cup-last-hole-v1'
+const STORAGE_KEY = 'musora-open-last-hole-v1'
 
 function readAll(): Record<string, number> {
   if (typeof localStorage === 'undefined') return {}

@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'borseth-golf-device-profile-v1'
+const STORAGE_KEY = 'musora-golf-device-profile-v1'
 
 export type GolfRole = 'player' | 'spectator'
 

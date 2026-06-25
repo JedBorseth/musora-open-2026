@@ -76,35 +76,32 @@ export function parForHole(hole: number): number | undefined {
 
 /** Default display names (edit on setup). */
 export const TEAM_LABELS: Record<string, string> = {
-  t1: 'Team Fairway',
-  t2: 'Team Bunker',
-  t3: 'Team Tap-In',
-  t4: 'Team Mulligan',
-  t5: 'Team Eagle',
+  t1: 'Group 1',
+  t2: 'Group 2',
+  t3: 'Group 3',
+  t4: 'Group 4',
 }
 
 export const PLAYERS: Array<PlayerRecord> = [
-  { id: 'p6', name: 'Max', teamId: 't1' },
-  { id: 'p5', name: 'Kathi', teamId: 't1' },
-  { id: 'p7', name: 'Jones', teamId: 't1' },
+  { id: 'p1', name: 'John1', teamId: 't1' },
+  { id: 'p2', name: 'John2', teamId: 't1' },
+  { id: 'p3', name: 'John3', teamId: 't1' },
+  { id: 'p4', name: 'John4', teamId: 't1' },
 
-  { id: 'p1', name: 'Jason', teamId: 't2' },
-  { id: 'p14', name: 'Josh D', teamId: 't2' },
-  { id: 'p17', name: 'Lexi', teamId: 't2' },
+  { id: 'p5', name: 'John5', teamId: 't2' },
+  { id: 'p6', name: 'John6', teamId: 't2' },
+  { id: 'p7', name: 'John7', teamId: 't2' },
+  { id: 'p8', name: 'John8', teamId: 't2' },
 
-  { id: 'p8', name: 'Jed', teamId: 't3' },
-  { id: 'p10', name: 'Mary-Liz', teamId: 't3' },
-  { id: 'p2', name: 'Jasmine', teamId: 't3' },
-  { id: 'p11', name: 'Emily', teamId: 't3' },
+  { id: 'p9', name: 'John9', teamId: 't3' },
+  { id: 'p10', name: 'John10', teamId: 't3' },
+  { id: 'p11', name: 'John11', teamId: 't3' },
+  { id: 'p12', name: 'John12', teamId: 't3' },
 
-  { id: 'p13', name: 'Josh B', teamId: 't4' },
-  { id: 'p12', name: 'Lily', teamId: 't4' },
-  { id: 'p4', name: 'Blake', teamId: 't4' },
-
-  { id: 'p15', name: 'Mike B', teamId: 't5' },
-  { id: 'p16', name: 'Mike P', teamId: 't5' },
-  { id: 'p3', name: 'Hannah', teamId: 't5' },
-  { id: 'p9', name: 'Andrea', teamId: 't5' },
+  { id: 'p13', name: 'John13', teamId: 't4' },
+  { id: 'p14', name: 'John14', teamId: 't4' },
+  { id: 'p15', name: 'John15', teamId: 't4' },
+  { id: 'p16', name: 'John16', teamId: 't4' },
 ]
 
 export function teammatesForPlayer(playerId: string): Array<PlayerRecord> {

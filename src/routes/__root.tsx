@@ -21,12 +21,12 @@ export const Route = createRootRouteWithContext<{
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Borseth Cup — Family Golf',
+        title: 'Musora Open — Work Golf',
       },
       {
         name: 'description',
         content:
-          'Rules, live leaderboard, and phone-first scorecard for Borseth Cup.',
+          'Rules, live leaderboard, and phone-first scorecard for the Musora Open.',
       },
       {
         name: 'theme-color',

@@ -1,7 +1,7 @@
 // Precache + stale-while-revalidate for Cultus hole images / scorecard and same-origin assets.
 const CULTUS_MEDIA = 'https://golfcultus.com/wp-content/uploads'
-const CACHE_CULTUS = 'borseth-cultus-media-v2'
-const CACHE_APP = 'borseth-app-assets-v2'
+const CACHE_CULTUS = 'musora-cultus-media-v2'
+const CACHE_APP = 'musora-app-assets-v2'
 
 const SCORECARD_URL = `${CULTUS_MEDIA}/2024/02/2021-CLGC-Scorecard-Back.webp`
 const HOLE_BASE = `${CULTUS_MEDIA}/2024/03`

@@ -64,17 +64,17 @@ function WelcomePage() {
     >
       <header className="space-y-2 text-center">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-          Family weekend
+          Work event
         </p>
         <h1 className="text-balance font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-          Borseth{' '}
+          Musora{' '}
           <Link to="/admin" className="cursor-text">
-            Cup
+            Open
           </Link>
         </h1>
         <p className="text-pretty text-sm text-muted-foreground">
           Rules, live leaderboard, and an easy phone-first scorecard for the
-          group.
+          Musora team.
         </p>
       </header>
 

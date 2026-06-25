@@ -73,8 +73,7 @@ function RulesPage() {
           </RuleSection>
           <RuleSection title="Questions?">
             <p>
-              Ask <strong>Josh</strong> or <strong>Jed</strong> before teeing
-              off hole 1.
+              Ask <strong>Mary-Liz</strong> before teeing off.
             </p>
           </RuleSection>
         </CardContent>

@@ -42,7 +42,7 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
 
-const TEAM_IDS = ['t1', 't2', 't3', 't4', 't5'] as const
+const TEAM_IDS = ['t1', 't2', 't3', 't4'] as const
 
 type TeamId = (typeof TEAM_IDS)[number]
 

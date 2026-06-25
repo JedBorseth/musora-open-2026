@@ -1,7 +1,7 @@
 {
-  "name": "The Borseth Open Scoring App",
-  "short_name": "Borseth Open",
-  "description": "Rules, live leaderboard, and phone-first scorecard for Borseth Cup.",
+  "name": "The Musora Open Scoring App",
+  "short_name": "Musora Open",
+  "description": "Rules, live leaderboard, and phone-first scorecard for the Musora Open.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
