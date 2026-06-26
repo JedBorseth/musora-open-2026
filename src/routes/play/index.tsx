@@ -729,6 +729,7 @@ function PlayGolfPage() {
 
   const meta = HOLE_META[currentHole - 1]
   const recorded = scoreForHole(currentHole)
+  const currentHoleIsUnscored = recorded === undefined
   const recordedDelta =
     recorded !== undefined ? deltaForHole(recorded, meta.par) : undefined
   const recordedTier =
@@ -983,6 +984,14 @@ function PlayGolfPage() {
           >
             Next
             <ChevronRightIcon className="size-5" />
+          </Button>
+        ) : currentHoleIsUnscored ? (
+          <Button
+            className="h-12 flex-1 rounded-xl gap-2"
+            onClick={() => openHoleScoreEditor(currentHole)}
+          >
+            Score hole {currentHole}
+            <PlusIcon className="size-5" />
           </Button>
         ) : (
           <Button
