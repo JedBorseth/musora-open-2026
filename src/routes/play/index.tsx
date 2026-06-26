@@ -39,8 +39,8 @@ import {
 import { loadProfile, saveProfile } from '~/lib/device-profile'
 import {
   COURSE_NAME,
-  defaultTeamPlayers,
   HOLE_META,
+  defaultTeamPlayers,
   minTeeShotsRequiredPerPlayer,
 } from '~/lib/golf-data'
 import {
